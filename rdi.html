@@ -1,0 +1,956 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<script src="js/jquery-1.7.1.min.js" type="text/javascript"></script>
+	<script src="js/jsrender.js" type="text/javascript"></script>
+	<script src="js/jquery.observable.js" type="text/javascript"></script>
+	<script src="js/jquery.views.js" type="text/javascript"></script>
+	<script src="http://ajax.googleapis.com/ajax/libs/jqueryui/1.8.16/jquery-ui.min.js"></script>
+	<script src="js/raphael.js" type="text/javascript"></script>
+</head>
+<style>
+html {
+	background-color: rgb(238, 248, 252);
+}
+
+.statsOuter {
+	border-width: 1px;
+	border-color: rgb(230, 230, 230);
+	border-style: dashed;
+	padding: .5%;
+	margin-left: 1%;
+	margin-top: 2%;
+	border-radius: 8px;
+	background-color: rgb(250, 250, 250);
+}
+
+.statsOuter:hover {
+	border-width: 1px;
+	border-color: rgb(190, 190, 190);
+	border-style: solid;
+	
+}
+
+
+.recursiveStats {
+	border-width: 3px;
+	border-color: rgb(190, 190, 220);
+	border-style: solid;
+	padding: 1%;
+	margin-top 2%;
+	border-radius: 8px;
+}
+.recursiveStats .recursiveStats {
+	margin-left: 10%;
+	margin-top 80%;
+	border-width: 3px;
+	border-color: rgb(190, 190, 220);
+	border-style: solid;
+	
+}
+
+.hSelect {
+	margin-top: .5%;
+}
+
+.totalSOVal {
+	margin-top: 1%;
+}
+
+label {
+	border-width: 1px;
+	border-color: rgb(150, 150, 190);
+	border-style: solid;
+	padding: 3px;
+	background-color: #ded;
+}
+
+.pcContainer {
+	display: inline-block;
+	margin-right: 1%;
+	background-color: rgb(236, 231, 228);
+	margin-bottom: 2%;
+	padding: 3px;
+	border-width: 1px;
+	border-color: rgb(70, 70, 70);
+	border-style: solid;
+}
+
+.pclContainer {
+	display: inline-block;
+	margin-right: 1%;
+}
+
+.floater {
+	float:left; 
+	height:110px;
+	width: auto;
+	
+}
+
+
+.centerPosition {
+	clear:both; 
+	width: 10%;
+	height: 20%;
+	overflow: visible;
+	position:relative;
+	
+}
+
+.statsLabel {
+	background-color: #eee;
+}
+
+.statsMsg {
+	visibility: hidden;
+	margin-left: 1%;
+}
+
+.statsOuter:hover > .statsMsg {
+	visibility: visible;
+}
+
+.
+</style>
+<body>
+<h1>'Descending' Data Inspector (view source to see sample flat data)</h1>
+<h2>Usage: $(someElement).rdInspector(someFlatJsonData);</h2>
+<div id="contentDiv"></div>
+<script id="rdTemplate" type="text/x-jsrender">
+ <div class="recursiveStats">
+	  
+	<label><span class='rdLabel'>{{:rdLabel}}</span>:</label> <span>{{:rdData.length}}</span>
+	<div class='hSelect'>
+			
+			<select class='breakdownSelect'><option value=-1>--Select Category To Inspect</option>
+			{{for ~getKeys(rdData)}}
+				<option>{{:#data}}</option>
+			{{/for}}
+			</select>
+	</div>
+	<span class='statsHolder'>
+		
+	</span>
+ </div>
+</script>
+<script id="breakdownTemplate" type="text/x-jsrender">
+	
+	<div class='statsOuter'>  
+		<span class='pclContainer'>
+			<span class="floater">
+				<span class='centerPosition'>
+					<label class="statsLabel"><span class="statKey">{{:sKey}}</span>:<span class="statVal">{{:sVal}}</span></label>
+					<br/><br/>
+					<span class="totalSOVal">Total (This Category) = {{:val}}</span>
+				</span>
+			</span>
+		</span>
+		<span class='pcContainer'>
+			<div class='breakdownPieChart'></div>
+			<div>{{:perc}} Of Parent Category</div>
+		</span>
+		<span class='pcContainer'>
+			<div class='breakdownTotalPieChart'></div>
+			<div>{{:~percT(val)}} of Overall Total</div>
+		</span>
+	<span class="statsMsg">Click To Open New Inspector For This Category</span>
+	</div>
+	
+</script>
+<script type="text/javascript">
+var candidates = [
+{ Subject: 'Legislation', Gender: 'Female', International: 'Male'},
+{ Subject: 'Legislation', Gender: 'N/A', International: 'N/A'},
+{ Subject: 'Constitutional Law', Gender: 'Male', International: 'Female'},
+{ Subject: 'Contracts', Gender: 'Male', International: 'Female'},
+{ Subject: 'Legislation', Gender: 'N/A', International: 'N/A'},
+{ Subject: 'Tax Law', Gender: 'N/A', International: 'Male'},
+{ Subject: 'Legislation', Gender: 'Female', International: 'Male'},
+{ Subject: 'Administrative Law', Gender: 'Male', International: 'Male'},
+{ Subject: 'Admiralty and Maritime Law', Gender: 'Female', International: 'Female'},
+{ Subject: 'Administrative Law', Gender: 'N/A', International: 'Female'},
+{ Subject: 'Tax Law', Gender: 'Female', International: 'Female'},
+{ Subject: 'Admiralty and Maritime Law', Gender: 'Male', International: 'N/A'},
+{ Subject: 'Contracts', Gender: 'N/A', International: 'Female'},
+{ Subject: 'Contracts', Gender: 'N/A', International: 'Female'},
+{ Subject: 'Constitutional Law', Gender: 'Male', International: 'Male'},
+{ Subject: 'Legislation', Gender: 'Male', International: 'Female'},
+{ Subject: 'Contracts', Gender: 'Male', International: 'N/A'},
+{ Subject: 'Administrative Law', Gender: 'Female', International: 'N/A'},
+{ Subject: 'Legislation', Gender: 'Male', International: 'Female'},
+{ Subject: 'Contracts', Gender: 'Male', International: 'N/A'},
+{ Subject: 'Contracts', Gender: 'Male', International: 'N/A'},
+{ Subject: 'Administrative Law', Gender: 'N/A', International: 'Male'},
+{ Subject: 'Contracts', Gender: 'N/A', International: 'N/A'},
+{ Subject: 'Constitutional Law', Gender: 'Male', International: 'Male'},
+{ Subject: 'Administrative Law', Gender: 'Female', International: 'Male'},
+{ Subject: 'Admiralty and Maritime Law', Gender: 'N/A', International: 'Female'},
+{ Subject: 'Constitutional Law', Gender: 'Female', International: 'N/A'},
+{ Subject: 'Admiralty and Maritime Law', Gender: 'Male', International: 'Female'},
+{ Subject: 'Admiralty and Maritime Law', Gender: 'N/A', International: 'Male'},
+{ Subject: 'Comparative Law', Gender: 'Female', International: 'Male'},
+{ Subject: 'Admiralty and Maritime Law', Gender: 'Male', International: 'N/A'},
+{ Subject: 'Contracts', Gender: 'N/A', International: 'N/A'},
+{ Subject: 'Criminal Law', Gender: 'N/A', International: 'Male'},
+{ Subject: 'Legislation', Gender: 'Male', International: 'Male'},
+{ Subject: 'Constitutional Law', Gender: 'Male', International: 'N/A'},
+{ Subject: 'Criminal Law', Gender: 'N/A', International: 'Female'},
+{ Subject: 'Administrative Law', Gender: 'Male', International: 'Female'},
+{ Subject: 'Tax Law', Gender: 'Male', International: 'N/A'},
+{ Subject: 'Admiralty and Maritime Law', Gender: 'Female', International: 'N/A'},
+{ Subject: 'Contracts', Gender: 'N/A', International: 'Male'},
+{ Subject: 'Legislation', Gender: 'Male', International: 'N/A'},
+{ Subject: 'Admiralty and Maritime Law', Gender: 'Male', International: 'Female'},
+{ Subject: 'Administrative Law', Gender: 'Male', International: 'Male'},
+{ Subject: 'Administrative Law', Gender: 'N/A', International: 'N/A'},
+{ Subject: 'Criminal Law', Gender: 'Male', International: 'Male'},
+{ Subject: 'Criminal Law', Gender: 'Female', International: 'N/A'},
+{ Subject: 'Administrative Law', Gender: 'N/A', International: 'N/A'},
+{ Subject: 'Administrative Law', Gender: 'Female', International: 'N/A'},
+{ Subject: 'Tax Law', Gender: 'N/A', International: 'Female'},
+{ Subject: 'Contracts', Gender: 'Male', International: 'N/A'},
+{ Subject: 'Tax Law', Gender: 'Male', International: 'N/A'},
+{ Subject: 'Criminal Law', Gender: 'Female', International: 'Female'},
+{ Subject: 'Admiralty and Maritime Law', Gender: 'Male', International: 'N/A'},
+{ Subject: 'Admiralty and Maritime Law', Gender: 'N/A', International: 'N/A'},
+{ Subject: 'Comparative Law', Gender: 'N/A', International: 'Female'},
+{ Subject: 'Administrative Law', Gender: 'N/A', International: 'Female'},
+{ Subject: 'Legislation', Gender: 'N/A', International: 'N/A'},
+{ Subject: 'Contracts', Gender: 'Male', International: 'Female'},
+{ Subject: 'Legislation', Gender: 'N/A', International: 'Male'},
+{ Subject: 'Administrative Law', Gender: 'Female', International: 'Female'},
+{ Subject: 'Administrative Law', Gender: 'Female', International: 'Male'},
+{ Subject: 'Administrative Law', Gender: 'Female', International: 'N/A'},
+{ Subject: 'Criminal Law', Gender: 'N/A', International: 'N/A'},
+{ Subject: 'Contracts', Gender: 'N/A', International: 'N/A'},
+{ Subject: 'Legislation', Gender: 'Female', International: 'Male'},
+{ Subject: 'Comparative Law', Gender: 'Male', International: 'N/A'},
+{ Subject: 'Constitutional Law', Gender: 'Male', International: 'Female'},
+{ Subject: 'Criminal Law', Gender: 'Female', International: 'Female'},
+{ Subject: 'Admiralty and Maritime Law', Gender: 'Male', International: 'N/A'},
+{ Subject: 'Admiralty and Maritime Law', Gender: 'N/A', International: 'Male'},
+{ Subject: 'Tax Law', Gender: 'Female', International: 'Male'},
+{ Subject: 'Tax Law', Gender: 'N/A', International: 'N/A'},
+{ Subject: 'Legislation', Gender: 'N/A', International: 'Female'},
+{ Subject: 'Criminal Law', Gender: 'Male', International: 'N/A'},
+{ Subject: 'Legislation', Gender: 'N/A', International: 'Female'},
+{ Subject: 'Criminal Law', Gender: 'Female', International: 'Female'},
+{ Subject: 'Criminal Law', Gender: 'Male', International: 'Male'},
+{ Subject: 'Contracts', Gender: 'Female', International: 'Female'},
+{ Subject: 'Tax Law', Gender: 'Female', International: 'Male'},
+{ Subject: 'Tax Law', Gender: 'Female', International: 'N/A'},
+{ Subject: 'Contracts', Gender: 'Female', International: 'Female'},
+{ Subject: 'Constitutional Law', Gender: 'Female', International: 'N/A'},
+{ Subject: 'Constitutional Law', Gender: 'N/A', International: 'Male'},
+{ Subject: 'Legislation', Gender: 'Male', International: 'Male'},
+{ Subject: 'Legislation', Gender: 'Male', International: 'Male'},
+{ Subject: 'Admiralty and Maritime Law', Gender: 'Male', International: 'N/A'},
+{ Subject: 'Constitutional Law', Gender: 'N/A', International: 'Female'},
+{ Subject: 'Tax Law', Gender: 'Female', International: 'Female'},
+{ Subject: 'Administrative Law', Gender: 'N/A', International: 'Male'},
+{ Subject: 'Contracts', Gender: 'Male', International: 'Female'},
+{ Subject: 'Comparative Law', Gender: 'Female', International: 'Female'},
+{ Subject: 'Criminal Law', Gender: 'Female', International: 'N/A'},
+{ Subject: 'Comparative Law', Gender: 'N/A', International: 'Female'},
+{ Subject: 'Criminal Law', Gender: 'N/A', International: 'Male'},
+{ Subject: 'Criminal Law', Gender: 'N/A', International: 'N/A'},
+{ Subject: 'Constitutional Law', Gender: 'Male', International: 'Male'},
+{ Subject: 'Admiralty and Maritime Law', Gender: 'N/A', International: 'N/A'},
+{ Subject: 'Admiralty and Maritime Law', Gender: 'Female', International: 'Female'},
+{ Subject: 'Contracts', Gender: 'Female', International: 'N/A'},
+{ Subject: 'Criminal Law', Gender: 'Female', International: 'N/A'},
+{ Subject: 'Constitutional Law', Gender: 'Female', International: 'N/A'},
+{ Subject: 'Contracts', Gender: 'Male', International: 'Female'},
+{ Subject: 'Constitutional Law', Gender: 'Male', International: 'N/A'},
+{ Subject: 'Criminal Law', Gender: 'Male', International: 'Female'},
+{ Subject: 'Contracts', Gender: 'N/A', International: 'N/A'},
+{ Subject: 'Comparative Law', Gender: 'N/A', International: 'Male'},
+{ Subject: 'Constitutional Law', Gender: 'Male', International: 'Male'},
+{ Subject: 'Administrative Law', Gender: 'Female', International: 'Female'},
+{ Subject: 'Constitutional Law', Gender: 'Male', International: 'Female'},
+{ Subject: 'Constitutional Law', Gender: 'Male', International: 'N/A'},
+{ Subject: 'Admiralty and Maritime Law', Gender: 'Female', International: 'N/A'},
+{ Subject: 'Admiralty and Maritime Law', Gender: 'Female', International: 'Female'},
+{ Subject: 'Constitutional Law', Gender: 'Male', International: 'Male'},
+{ Subject: 'Criminal Law', Gender: 'Male', International: 'Female'},
+{ Subject: 'Tax Law', Gender: 'N/A', International: 'Female'},
+{ Subject: 'Comparative Law', Gender: 'Female', International: 'N/A'},
+{ Subject: 'Contracts', Gender: 'N/A', International: 'Male'},
+{ Subject: 'Legislation', Gender: 'Female', International: 'N/A'},
+{ Subject: 'Administrative Law', Gender: 'N/A', International: 'Male'},
+{ Subject: 'Legislation', Gender: 'N/A', International: 'Female'},
+{ Subject: 'Legislation', Gender: 'N/A', International: 'Male'},
+{ Subject: 'Comparative Law', Gender: 'N/A', International: 'N/A'},
+{ Subject: 'Administrative Law', Gender: 'N/A', International: 'Female'},
+{ Subject: 'Administrative Law', Gender: 'Male', International: 'Male'},
+{ Subject: 'Constitutional Law', Gender: 'N/A', International: 'Male'},
+{ Subject: 'Administrative Law', Gender: 'Female', International: 'N/A'},
+{ Subject: 'Administrative Law', Gender: 'N/A', International: 'Female'},
+{ Subject: 'Legislation', Gender: 'Female', International: 'Male'},
+{ Subject: 'Legislation', Gender: 'N/A', International: 'Male'},
+{ Subject: 'Contracts', Gender: 'Male', International: 'Male'},
+{ Subject: 'Administrative Law', Gender: 'Male', International: 'N/A'},
+{ Subject: 'Contracts', Gender: 'Female', International: 'N/A'},
+{ Subject: 'Admiralty and Maritime Law', Gender: 'N/A', International: 'Female'},
+{ Subject: 'Legislation', Gender: 'N/A', International: 'Male'},
+{ Subject: 'Criminal Law', Gender: 'N/A', International: 'Female'},
+{ Subject: 'Tax Law', Gender: 'Male', International: 'Male'},
+{ Subject: 'Admiralty and Maritime Law', Gender: 'Male', International: 'Female'},
+{ Subject: 'Comparative Law', Gender: 'Female', International: 'Male'},
+{ Subject: 'Admiralty and Maritime Law', Gender: 'Female', International: 'N/A'},
+{ Subject: 'Admiralty and Maritime Law', Gender: 'Female', International: 'Male'},
+{ Subject: 'Tax Law', Gender: 'Female', International: 'Male'},
+{ Subject: 'Legislation', Gender: 'N/A', International: 'N/A'},
+{ Subject: 'Admiralty and Maritime Law', Gender: 'Female', International: 'Male'},
+{ Subject: 'Legislation', Gender: 'N/A', International: 'Female'},
+{ Subject: 'Criminal Law', Gender: 'Male', International: 'Male'},
+{ Subject: 'Legislation', Gender: 'Female', International: 'Female'},
+{ Subject: 'Tax Law', Gender: 'Female', International: 'Male'},
+{ Subject: 'Tax Law', Gender: 'N/A', International: 'N/A'},
+{ Subject: 'Admiralty and Maritime Law', Gender: 'N/A', International: 'Male'},
+{ Subject: 'Criminal Law', Gender: 'Male', International: 'N/A'},
+{ Subject: 'Legislation', Gender: 'Male', International: 'Female'},
+{ Subject: 'Criminal Law', Gender: 'N/A', International: 'N/A'},
+{ Subject: 'Constitutional Law', Gender: 'Female', International: 'N/A'},
+{ Subject: 'Contracts', Gender: 'Male', International: 'N/A'},
+{ Subject: 'Contracts', Gender: 'N/A', International: 'Female'},
+{ Subject: 'Contracts', Gender: 'N/A', International: 'Female'},
+{ Subject: 'Administrative Law', Gender: 'Female', International: 'Male'},
+{ Subject: 'Legislation', Gender: 'Female', International: 'N/A'},
+{ Subject: 'Administrative Law', Gender: 'N/A', International: 'N/A'},
+{ Subject: 'Constitutional Law', Gender: 'Male', International: 'N/A'},
+{ Subject: 'Constitutional Law', Gender: 'Male', International: 'N/A'},
+{ Subject: 'Comparative Law', Gender: 'Female', International: 'Female'},
+{ Subject: 'Contracts', Gender: 'Female', International: 'Male'},
+{ Subject: 'Criminal Law', Gender: 'N/A', International: 'Male'},
+{ Subject: 'Legislation', Gender: 'Female', International: 'Male'},
+{ Subject: 'Administrative Law', Gender: 'Female', International: 'N/A'},
+{ Subject: 'Admiralty and Maritime Law', Gender: 'N/A', International: 'Female'},
+{ Subject: 'Contracts', Gender: 'N/A', International: 'N/A'},
+{ Subject: 'Criminal Law', Gender: 'Female', International: 'Male'},
+{ Subject: 'Tax Law', Gender: 'N/A', International: 'Male'},
+{ Subject: 'Constitutional Law', Gender: 'N/A', International: 'N/A'},
+{ Subject: 'Admiralty and Maritime Law', Gender: 'Male', International: 'Male'},
+{ Subject: 'Admiralty and Maritime Law', Gender: 'Female', International: 'N/A'},
+{ Subject: 'Legislation', Gender: 'Male', International: 'Male'},
+{ Subject: 'Constitutional Law', Gender: 'Male', International: 'N/A'},
+{ Subject: 'Admiralty and Maritime Law', Gender: 'Female', International: 'Male'},
+{ Subject: 'Constitutional Law', Gender: 'Male', International: 'N/A'},
+{ Subject: 'Constitutional Law', Gender: 'N/A', International: 'Female'},
+{ Subject: 'Comparative Law', Gender: 'Female', International: 'N/A'},
+{ Subject: 'Criminal Law', Gender: 'Male', International: 'Male'},
+{ Subject: 'Contracts', Gender: 'N/A', International: 'Male'},
+{ Subject: 'Tax Law', Gender: 'Male', International: 'Male'},
+{ Subject: 'Administrative Law', Gender: 'Male', International: 'Female'},
+{ Subject: 'Tax Law', Gender: 'N/A', International: 'Male'},
+{ Subject: 'Tax Law', Gender: 'Female', International: 'Male'},
+{ Subject: 'Tax Law', Gender: 'N/A', International: 'Male'},
+{ Subject: 'Contracts', Gender: 'N/A', International: 'Female'},
+{ Subject: 'Criminal Law', Gender: 'Female', International: 'N/A'},
+{ Subject: 'Contracts', Gender: 'Male', International: 'Female'},
+{ Subject: 'Contracts', Gender: 'N/A', International: 'Female'},
+{ Subject: 'Tax Law', Gender: 'Male', International: 'N/A'},
+{ Subject: 'Admiralty and Maritime Law', Gender: 'Female', International: 'N/A'},
+{ Subject: 'Legislation', Gender: 'N/A', International: 'N/A'},
+{ Subject: 'Comparative Law', Gender: 'Female', International: 'Female'},
+{ Subject: 'Constitutional Law', Gender: 'Female', International: 'N/A'},
+{ Subject: 'Constitutional Law', Gender: 'Male', International: 'N/A'},
+{ Subject: 'Legislation', Gender: 'N/A', International: 'N/A'},
+{ Subject: 'Tax Law', Gender: 'N/A', International: 'N/A'},
+{ Subject: 'Admiralty and Maritime Law', Gender: 'Female', International: 'Female'},
+{ Subject: 'Constitutional Law', Gender: 'Male', International: 'Male'},
+{ Subject: 'Constitutional Law', Gender: 'Male', International: 'Male'},
+{ Subject: 'Criminal Law', Gender: 'Female', International: 'N/A'},
+{ Subject: 'Contracts', Gender: 'Female', International: 'Male'},
+{ Subject: 'Criminal Law', Gender: 'Female', International: 'N/A'},
+{ Subject: 'Tax Law', Gender: 'N/A', International: 'Female'},
+{ Subject: 'Legislation', Gender: 'N/A', International: 'Female'},
+{ Subject: 'Criminal Law', Gender: 'N/A', International: 'Male'},
+{ Subject: 'Tax Law', Gender: 'Male', International: 'Female'},
+{ Subject: 'Comparative Law', Gender: 'Female', International: 'Female'},
+{ Subject: 'Contracts', Gender: 'Male', International: 'Male'},
+{ Subject: 'Contracts', Gender: 'Female', International: 'N/A'},
+{ Subject: 'Criminal Law', Gender: 'Male', International: 'Female'},
+{ Subject: 'Administrative Law', Gender: 'N/A', International: 'Female'},
+{ Subject: 'Admiralty and Maritime Law', Gender: 'Male', International: 'Female'},
+{ Subject: 'Tax Law', Gender: 'N/A', International: 'Male'},
+{ Subject: 'Tax Law', Gender: 'Female', International: 'N/A'},
+{ Subject: 'Constitutional Law', Gender: 'N/A', International: 'Male'},
+{ Subject: 'Criminal Law', Gender: 'N/A', International: 'Male'},
+{ Subject: 'Criminal Law', Gender: 'Female', International: 'N/A'},
+{ Subject: 'Admiralty and Maritime Law', Gender: 'Male', International: 'Male'},
+{ Subject: 'Criminal Law', Gender: 'N/A', International: 'N/A'},
+{ Subject: 'Tax Law', Gender: 'Male', International: 'Male'},
+{ Subject: 'Admiralty and Maritime Law', Gender: 'N/A', International: 'N/A'},
+{ Subject: 'Comparative Law', Gender: 'Male', International: 'Female'},
+{ Subject: 'Contracts', Gender: 'Female', International: 'Male'},
+{ Subject: 'Legislation', Gender: 'Male', International: 'N/A'},
+{ Subject: 'Admiralty and Maritime Law', Gender: 'N/A', International: 'Male'},
+{ Subject: 'Legislation', Gender: 'N/A', International: 'Male'},
+{ Subject: 'Administrative Law', Gender: 'Male', International: 'Male'},
+{ Subject: 'Constitutional Law', Gender: 'N/A', International: 'N/A'},
+{ Subject: 'Tax Law', Gender: 'Male', International: 'N/A'},
+{ Subject: 'Constitutional Law', Gender: 'Male', International: 'Male'},
+{ Subject: 'Criminal Law', Gender: 'Male', International: 'N/A'},
+{ Subject: 'Comparative Law', Gender: 'Male', International: 'Female'},
+{ Subject: 'Admiralty and Maritime Law', Gender: 'N/A', International: 'Female'},
+{ Subject: 'Criminal Law', Gender: 'Male', International: 'Male'},
+{ Subject: 'Comparative Law', Gender: 'Male', International: 'N/A'},
+{ Subject: 'Admiralty and Maritime Law', Gender: 'Male', International: 'Female'},
+{ Subject: 'Contracts', Gender: 'Male', International: 'N/A'},
+{ Subject: 'Administrative Law', Gender: 'Female', International: 'N/A'},
+{ Subject: 'Criminal Law', Gender: 'Male', International: 'Female'},
+{ Subject: 'Tax Law', Gender: 'Male', International: 'Male'},
+{ Subject: 'Admiralty and Maritime Law', Gender: 'Male', International: 'Male'},
+{ Subject: 'Comparative Law', Gender: 'Female', International: 'N/A'},
+{ Subject: 'Legislation', Gender: 'Male', International: 'N/A'},
+{ Subject: 'Criminal Law', Gender: 'Male', International: 'Male'},
+{ Subject: 'Comparative Law', Gender: 'Female', International: 'Male'},
+{ Subject: 'Tax Law', Gender: 'Male', International: 'Female'},
+{ Subject: 'Contracts', Gender: 'Female', International: 'N/A'},
+{ Subject: 'Administrative Law', Gender: 'Female', International: 'N/A'},
+{ Subject: 'Admiralty and Maritime Law', Gender: 'N/A', International: 'Male'},
+{ Subject: 'Tax Law', Gender: 'Male', International: 'N/A'},
+{ Subject: 'Constitutional Law', Gender: 'N/A', International: 'N/A'},
+{ Subject: 'Tax Law', Gender: 'N/A', International: 'Female'},
+{ Subject: 'Constitutional Law', Gender: 'Male', International: 'N/A'},
+{ Subject: 'Contracts', Gender: 'Male', International: 'Male'},
+{ Subject: 'Admiralty and Maritime Law', Gender: 'Male', International: 'N/A'},
+{ Subject: 'Comparative Law', Gender: 'Male', International: 'Female'},
+{ Subject: 'Comparative Law', Gender: 'N/A', International: 'Male'},
+{ Subject: 'Comparative Law', Gender: 'N/A', International: 'Male'},
+{ Subject: 'Contracts', Gender: 'Male', International: 'N/A'},
+{ Subject: 'Comparative Law', Gender: 'Male', International: 'Male'},
+{ Subject: 'Legislation', Gender: 'Female', International: 'Male'},
+{ Subject: 'Contracts', Gender: 'Male', International: 'Female'},
+{ Subject: 'Criminal Law', Gender: 'Female', International: 'Female'},
+{ Subject: 'Comparative Law', Gender: 'Female', International: 'Male'},
+{ Subject: 'Legislation', Gender: 'N/A', International: 'N/A'},
+{ Subject: 'Legislation', Gender: 'Male', International: 'N/A'},
+{ Subject: 'Admiralty and Maritime Law', Gender: 'Male', International: 'N/A'},
+{ Subject: 'Tax Law', Gender: 'Female', International: 'N/A'},
+{ Subject: 'Tax Law', Gender: 'Female', International: 'Male'},
+{ Subject: 'Constitutional Law', Gender: 'N/A', International: 'Male'},
+{ Subject: 'Tax Law', Gender: 'Female', International: 'Female'},
+{ Subject: 'Tax Law', Gender: 'Male', International: 'Male'},
+{ Subject: 'Criminal Law', Gender: 'Male', International: 'Male'},
+{ Subject: 'Criminal Law', Gender: 'N/A', International: 'Male'},
+{ Subject: 'Criminal Law', Gender: 'N/A', International: 'Female'},
+{ Subject: 'Administrative Law', Gender: 'Female', International: 'N/A'},
+{ Subject: 'Constitutional Law', Gender: 'Female', International: 'N/A'},
+{ Subject: 'Comparative Law', Gender: 'Female', International: 'Male'},
+{ Subject: 'Administrative Law', Gender: 'Female', International: 'Male'},
+{ Subject: 'Contracts', Gender: 'N/A', International: 'N/A'},
+{ Subject: 'Constitutional Law', Gender: 'Male', International: 'Female'},
+{ Subject: 'Administrative Law', Gender: 'Female', International: 'Male'},
+{ Subject: 'Admiralty and Maritime Law', Gender: 'Female', International: 'Female'},
+{ Subject: 'Comparative Law', Gender: 'N/A', International: 'Female'},
+{ Subject: 'Legislation', Gender: 'N/A', International: 'Female'},
+{ Subject: 'Contracts', Gender: 'Female', International: 'N/A'},
+{ Subject: 'Admiralty and Maritime Law', Gender: 'N/A', International: 'Female'},
+{ Subject: 'Legislation', Gender: 'Female', International: 'N/A'},
+{ Subject: 'Criminal Law', Gender: 'Male', International: 'N/A'},
+{ Subject: 'Contracts', Gender: 'N/A', International: 'Female'},
+{ Subject: 'Contracts', Gender: 'N/A', International: 'Male'},
+{ Subject: 'Tax Law', Gender: 'Female', International: 'Female'},
+{ Subject: 'Administrative Law', Gender: 'Female', International: 'N/A'},
+{ Subject: 'Admiralty and Maritime Law', Gender: 'Male', International: 'N/A'},
+{ Subject: 'Constitutional Law', Gender: 'Female', International: 'N/A'},
+{ Subject: 'Constitutional Law', Gender: 'N/A', International: 'N/A'},
+{ Subject: 'Admiralty and Maritime Law', Gender: 'N/A', International: 'Female'},
+{ Subject: 'Admiralty and Maritime Law', Gender: 'Male', International: 'Male'},
+{ Subject: 'Contracts', Gender: 'Male', International: 'Male'},
+{ Subject: 'Legislation', Gender: 'N/A', International: 'N/A'},
+{ Subject: 'Legislation', Gender: 'Female', International: 'N/A'},
+{ Subject: 'Criminal Law', Gender: 'Male', International: 'N/A'},
+{ Subject: 'Constitutional Law', Gender: 'Male', International: 'N/A'},
+{ Subject: 'Administrative Law', Gender: 'Female', International: 'Male'},
+{ Subject: 'Administrative Law', Gender: 'N/A', International: 'Female'},
+{ Subject: 'Criminal Law', Gender: 'Female', International: 'N/A'},
+{ Subject: 'Tax Law', Gender: 'Female', International: 'Female'},
+{ Subject: 'Administrative Law', Gender: 'Female', International: 'Male'},
+{ Subject: 'Contracts', Gender: 'Male', International: 'N/A'},
+{ Subject: 'Criminal Law', Gender: 'Female', International: 'N/A'},
+{ Subject: 'Contracts', Gender: 'Female', International: 'Male'},
+{ Subject: 'Criminal Law', Gender: 'Female', International: 'N/A'},
+{ Subject: 'Administrative Law', Gender: 'N/A', International: 'Female'},
+{ Subject: 'Admiralty and Maritime Law', Gender: 'Female', International: 'N/A'},
+{ Subject: 'Admiralty and Maritime Law', Gender: 'Female', International: 'N/A'},
+{ Subject: 'Criminal Law', Gender: 'Male', International: 'Male'},
+{ Subject: 'Criminal Law', Gender: 'N/A', International: 'Female'},
+{ Subject: 'Legislation', Gender: 'Female', International: 'Male'},
+{ Subject: 'Criminal Law', Gender: 'Male', International: 'N/A'},
+{ Subject: 'Administrative Law', Gender: 'Male', International: 'N/A'},
+{ Subject: 'Legislation', Gender: 'N/A', International: 'N/A'},
+{ Subject: 'Tax Law', Gender: 'Male', International: 'Male'},
+{ Subject: 'Comparative Law', Gender: 'N/A', International: 'Male'},
+{ Subject: 'Legislation', Gender: 'Male', International: 'Male'},
+{ Subject: 'Administrative Law', Gender: 'N/A', International: 'Female'},
+{ Subject: 'Contracts', Gender: 'N/A', International: 'N/A'},
+{ Subject: 'Administrative Law', Gender: 'Female', International: 'N/A'},
+{ Subject: 'Contracts', Gender: 'Male', International: 'Female'},
+{ Subject: 'Admiralty and Maritime Law', Gender: 'N/A', International: 'N/A'},
+{ Subject: 'Tax Law', Gender: 'Female', International: 'Male'},
+{ Subject: 'Comparative Law', Gender: 'N/A', International: 'Male'},
+{ Subject: 'Criminal Law', Gender: 'N/A', International: 'Female'},
+{ Subject: 'Administrative Law', Gender: 'Female', International: 'N/A'},
+{ Subject: 'Criminal Law', Gender: 'Female', International: 'Female'},
+{ Subject: 'Legislation', Gender: 'N/A', International: 'Female'},
+{ Subject: 'Admiralty and Maritime Law', Gender: 'N/A', International: 'Male'},
+{ Subject: 'Tax Law', Gender: 'Female', International: 'Female'},
+{ Subject: 'Contracts', Gender: 'Female', International: 'Male'},
+{ Subject: 'Constitutional Law', Gender: 'Male', International: 'Male'},
+{ Subject: 'Comparative Law', Gender: 'N/A', International: 'Male'},
+{ Subject: 'Legislation', Gender: 'N/A', International: 'Female'},
+{ Subject: 'Criminal Law', Gender: 'Female', International: 'Female'},
+{ Subject: 'Administrative Law', Gender: 'Female', International: 'Female'},
+{ Subject: 'Comparative Law', Gender: 'N/A', International: 'Female'},
+{ Subject: 'Criminal Law', Gender: 'Male', International: 'Male'},
+{ Subject: 'Admiralty and Maritime Law', Gender: 'Female', International: 'N/A'},
+{ Subject: 'Criminal Law', Gender: 'Female', International: 'Male'},
+{ Subject: 'Admiralty and Maritime Law', Gender: 'N/A', International: 'Female'},
+{ Subject: 'Administrative Law', Gender: 'N/A', International: 'Female'},
+{ Subject: 'Comparative Law', Gender: 'N/A', International: 'Female'},
+{ Subject: 'Tax Law', Gender: 'N/A', International: 'N/A'},
+{ Subject: 'Contracts', Gender: 'Female', International: 'N/A'},
+{ Subject: 'Administrative Law', Gender: 'Female', International: 'N/A'},
+{ Subject: 'Contracts', Gender: 'N/A', International: 'Male'},
+{ Subject: 'Contracts', Gender: 'Female', International: 'Male'},
+{ Subject: 'Tax Law', Gender: 'Female', International: 'Male'},
+{ Subject: 'Tax Law', Gender: 'N/A', International: 'Female'},
+{ Subject: 'Comparative Law', Gender: 'Female', International: 'N/A'},
+{ Subject: 'Admiralty and Maritime Law', Gender: 'Male', International: 'N/A'},
+{ Subject: 'Admiralty and Maritime Law', Gender: 'Male', International: 'Male'},
+{ Subject: 'Contracts', Gender: 'N/A', International: 'N/A'},
+{ Subject: 'Tax Law', Gender: 'Male', International: 'Female'},
+{ Subject: 'Tax Law', Gender: 'N/A', International: 'Male'},
+{ Subject: 'Contracts', Gender: 'Female', International: 'Male'},
+{ Subject: 'Constitutional Law', Gender: 'N/A', International: 'N/A'},
+{ Subject: 'Comparative Law', Gender: 'Female', International: 'Male'},
+{ Subject: 'Admiralty and Maritime Law', Gender: 'Male', International: 'Female'},
+{ Subject: 'Criminal Law', Gender: 'Male', International: 'N/A'},
+{ Subject: 'Tax Law', Gender: 'Female', International: 'N/A'},
+{ Subject: 'Criminal Law', Gender: 'N/A', International: 'Female'},
+{ Subject: 'Tax Law', Gender: 'Male', International: 'Female'},
+{ Subject: 'Criminal Law', Gender: 'Female', International: 'Female'},
+{ Subject: 'Constitutional Law', Gender: 'Female', International: 'N/A'},
+{ Subject: 'Admiralty and Maritime Law', Gender: 'Female', International: 'N/A'},
+{ Subject: 'Admiralty and Maritime Law', Gender: 'N/A', International: 'Male'},
+{ Subject: 'Comparative Law', Gender: 'N/A', International: 'Female'},
+{ Subject: 'Admiralty and Maritime Law', Gender: 'Male', International: 'N/A'},
+{ Subject: 'Criminal Law', Gender: 'Male', International: 'Male'},
+{ Subject: 'Admiralty and Maritime Law', Gender: 'Male', International: 'N/A'},
+{ Subject: 'Admiralty and Maritime Law', Gender: 'Male', International: 'Female'},
+{ Subject: 'Administrative Law', Gender: 'N/A', International: 'Female'},
+{ Subject: 'Admiralty and Maritime Law', Gender: 'Male', International: 'N/A'},
+{ Subject: 'Comparative Law', Gender: 'N/A', International: 'Female'},
+{ Subject: 'Admiralty and Maritime Law', Gender: 'N/A', International: 'Male'},
+{ Subject: 'Tax Law', Gender: 'N/A', International: 'Male'},
+{ Subject: 'Tax Law', Gender: 'N/A', International: 'Male'},
+{ Subject: 'Tax Law', Gender: 'N/A', International: 'Female'},
+{ Subject: 'Admiralty and Maritime Law', Gender: 'Female', International: 'Female'},
+{ Subject: 'Contracts', Gender: 'Male', International: 'N/A'},
+{ Subject: 'Constitutional Law', Gender: 'Female', International: 'Male'},
+{ Subject: 'Tax Law', Gender: 'N/A', International: 'N/A'},
+{ Subject: 'Criminal Law', Gender: 'N/A', International: 'Male'},
+{ Subject: 'Admiralty and Maritime Law', Gender: 'Female', International: 'N/A'},
+{ Subject: 'Legislation', Gender: 'N/A', International: 'Female'},
+{ Subject: 'Constitutional Law', Gender: 'Male', International: 'N/A'},
+{ Subject: 'Constitutional Law', Gender: 'Male', International: 'N/A'},
+{ Subject: 'Criminal Law', Gender: 'Female', International: 'Male'},
+{ Subject: 'Legislation', Gender: 'Female', International: 'Female'},
+{ Subject: 'Admiralty and Maritime Law', Gender: 'N/A', International: 'Female'},
+{ Subject: 'Contracts', Gender: 'Male', International: 'N/A'},
+{ Subject: 'Comparative Law', Gender: 'N/A', International: 'N/A'},
+{ Subject: 'Comparative Law', Gender: 'Male', International: 'Male'},
+{ Subject: 'Contracts', Gender: 'Male', International: 'Female'},
+{ Subject: 'Criminal Law', Gender: 'Female', International: 'Female'},
+{ Subject: 'Comparative Law', Gender: 'N/A', International: 'N/A'},
+{ Subject: 'Contracts', Gender: 'Female', International: 'N/A'},
+{ Subject: 'Administrative Law', Gender: 'Female', International: 'Male'},
+{ Subject: 'Constitutional Law', Gender: 'Male', International: 'Female'},
+{ Subject: 'Constitutional Law', Gender: 'Female', International: 'N/A'},
+{ Subject: 'Comparative Law', Gender: 'Female', International: 'Male'},
+{ Subject: 'Comparative Law', Gender: 'Female', International: 'N/A'},
+{ Subject: 'Administrative Law', Gender: 'Female', International: 'Male'},
+{ Subject: 'Constitutional Law', Gender: 'Male', International: 'N/A'},
+{ Subject: 'Legislation', Gender: 'Female', International: 'N/A'},
+{ Subject: 'Tax Law', Gender: 'Female', International: 'Female'},
+{ Subject: 'Comparative Law', Gender: 'N/A', International: 'N/A'},
+{ Subject: 'Criminal Law', Gender: 'Female', International: 'Male'},
+{ Subject: 'Constitutional Law', Gender: 'Female', International: 'Female'},
+{ Subject: 'Comparative Law', Gender: 'N/A', International: 'Male'},
+{ Subject: 'Criminal Law', Gender: 'Male', International: 'Female'},
+{ Subject: 'Legislation', Gender: 'Male', International: 'N/A'},
+{ Subject: 'Comparative Law', Gender: 'Male', International: 'N/A'},
+{ Subject: 'Criminal Law', Gender: 'N/A', International: 'N/A'},
+{ Subject: 'Tax Law', Gender: 'Male', International: 'Male'},
+{ Subject: 'Criminal Law', Gender: 'Male', International: 'Male'},
+{ Subject: 'Administrative Law', Gender: 'Male', International: 'Male'},
+{ Subject: 'Comparative Law', Gender: 'Female', International: 'Male'},
+{ Subject: 'Constitutional Law', Gender: 'Female', International: 'Female'},
+{ Subject: 'Constitutional Law', Gender: 'Male', International: 'Male'},
+{ Subject: 'Contracts', Gender: 'N/A', International: 'Male'},
+{ Subject: 'Constitutional Law', Gender: 'Female', International: 'N/A'},
+{ Subject: 'Contracts', Gender: 'Female', International: 'Female'},
+{ Subject: 'Comparative Law', Gender: 'Female', International: 'N/A'},
+{ Subject: 'Contracts', Gender: 'Female', International: 'Female'},
+{ Subject: 'Comparative Law', Gender: 'N/A', International: 'Female'},
+{ Subject: 'Comparative Law', Gender: 'N/A', International: 'N/A'},
+{ Subject: 'Criminal Law', Gender: 'Female', International: 'N/A'},
+{ Subject: 'Admiralty and Maritime Law', Gender: 'Female', International: 'Male'},
+{ Subject: 'Tax Law', Gender: 'Female', International: 'Female'},
+{ Subject: 'Admiralty and Maritime Law', Gender: 'N/A', International: 'N/A'},
+{ Subject: 'Contracts', Gender: 'N/A', International: 'Male'},
+{ Subject: 'Legislation', Gender: 'Male', International: 'Male'},
+{ Subject: 'Constitutional Law', Gender: 'Female', International: 'Male'},
+{ Subject: 'Tax Law', Gender: 'N/A', International: 'Male'},
+{ Subject: 'Comparative Law', Gender: 'Male', International: 'Male'},
+{ Subject: 'Tax Law', Gender: 'Female', International: 'Female'},
+{ Subject: 'Administrative Law', Gender: 'Female', International: 'Female'},
+{ Subject: 'Tax Law', Gender: 'N/A', International: 'Female'},
+{ Subject: 'Constitutional Law', Gender: 'N/A', International: 'Female'},
+{ Subject: 'Tax Law', Gender: 'N/A', International: 'Male'},
+{ Subject: 'Tax Law', Gender: 'Male', International: 'N/A'},
+{ Subject: 'Admiralty and Maritime Law', Gender: 'N/A', International: 'Male'},
+{ Subject: 'Contracts', Gender: 'Male', International: 'Female'},
+{ Subject: 'Constitutional Law', Gender: 'N/A', International: 'Male'},
+{ Subject: 'Administrative Law', Gender: 'Male', International: 'Male'},
+{ Subject: 'Tax Law', Gender: 'Female', International: 'Male'},
+{ Subject: 'Admiralty and Maritime Law', Gender: 'Male', International: 'Female'},
+{ Subject: 'Legislation', Gender: 'N/A', International: 'Male'},
+{ Subject: 'Tax Law', Gender: 'Male', International: 'Male'},
+{ Subject: 'Contracts', Gender: 'Female', International: 'Female'},
+{ Subject: 'Legislation', Gender: 'Male', International: 'Male'},
+{ Subject: 'Legislation', Gender: 'Female', International: 'N/A'},
+{ Subject: 'Administrative Law', Gender: 'Male', International: 'N/A'},
+{ Subject: 'Tax Law', Gender: 'N/A', International: 'N/A'},
+{ Subject: 'Criminal Law', Gender: 'Male', International: 'Male'},
+{ Subject: 'Criminal Law', Gender: 'Male', International: 'Female'},
+{ Subject: 'Administrative Law', Gender: 'Male', International: 'Female'},
+{ Subject: 'Constitutional Law', Gender: 'Male', International: 'Male'},
+{ Subject: 'Comparative Law', Gender: 'N/A', International: 'Male'},
+{ Subject: 'Tax Law', Gender: 'N/A', International: 'Male'},
+{ Subject: 'Constitutional Law', Gender: 'N/A', International: 'N/A'},
+{ Subject: 'Tax Law', Gender: 'Male', International: 'Female'},
+{ Subject: 'Admiralty and Maritime Law', Gender: 'Male', International: 'Male'},
+{ Subject: 'Tax Law', Gender: 'N/A', International: 'Male'},
+{ Subject: 'Administrative Law', Gender: 'N/A', International: 'Female'},
+{ Subject: 'Criminal Law', Gender: 'Female', International: 'Female'},
+{ Subject: 'Comparative Law', Gender: 'Male', International: 'N/A'},
+{ Subject: 'Administrative Law', Gender: 'N/A', International: 'N/A'},
+{ Subject: 'Criminal Law', Gender: 'Female', International: 'N/A'},
+{ Subject: 'Administrative Law', Gender: 'Female', International: 'Male'},
+{ Subject: 'Comparative Law', Gender: 'Female', International: 'N/A'},
+{ Subject: 'Constitutional Law', Gender: 'Male', International: 'Male'},
+{ Subject: 'Tax Law', Gender: 'N/A', International: 'Male'},
+{ Subject: 'Contracts', Gender: 'Male', International: 'N/A'},
+{ Subject: 'Comparative Law', Gender: 'N/A', International: 'Female'},
+{ Subject: 'Tax Law', Gender: 'Male', International: 'Male'},
+{ Subject: 'Administrative Law', Gender: 'Female', International: 'N/A'},
+{ Subject: 'Constitutional Law', Gender: 'Male', International: 'N/A'},
+{ Subject: 'Tax Law', Gender: 'Female', International: 'Male'},
+{ Subject: 'Constitutional Law', Gender: 'Female', International: 'Male'},
+{ Subject: 'Comparative Law', Gender: 'Female', International: 'Male'},
+{ Subject: 'Admiralty and Maritime Law', Gender: 'Female', International: 'Male'},
+{ Subject: 'Comparative Law', Gender: 'Male', International: 'Female'},
+{ Subject: 'Tax Law', Gender: 'N/A', International: 'Male'},
+{ Subject: 'Tax Law', Gender: 'Male', International: 'Male'},
+{ Subject: 'Legislation', Gender: 'N/A', International: 'Male'},
+{ Subject: 'Legislation', Gender: 'Male', International: 'Female'},
+{ Subject: 'Criminal Law', Gender: 'Male', International: 'N/A'},
+{ Subject: 'Legislation', Gender: 'Male', International: 'Male'},
+{ Subject: 'Administrative Law', Gender: 'Male', International: 'Male'},
+{ Subject: 'Tax Law', Gender: 'Female', International: 'N/A'},
+{ Subject: 'Constitutional Law', Gender: 'Female', International: 'Female'},
+{ Subject: 'Constitutional Law', Gender: 'Female', International: 'Female'},
+{ Subject: 'Comparative Law', Gender: 'Male', International: 'Female'},
+{ Subject: 'Legislation', Gender: 'N/A', International: 'N/A'},
+{ Subject: 'Administrative Law', Gender: 'N/A', International: 'Female'},
+{ Subject: 'Contracts', Gender: 'Male', International: 'Female'},
+{ Subject: 'Legislation', Gender: 'N/A', International: 'N/A'},
+{ Subject: 'Comparative Law', Gender: 'N/A', International: 'Female'},
+{ Subject: 'Constitutional Law', Gender: 'N/A', International: 'N/A'},
+{ Subject: 'Tax Law', Gender: 'N/A', International: 'N/A'},
+{ Subject: 'Tax Law', Gender: 'N/A', International: 'N/A'},
+{ Subject: 'Constitutional Law', Gender: 'N/A', International: 'Male'},
+{ Subject: 'Criminal Law', Gender: 'Female', International: 'Male'},
+{ Subject: 'Criminal Law', Gender: 'Male', International: 'Male'},
+{ Subject: 'Tax Law', Gender: 'Male', International: 'Female'},
+{ Subject: 'Constitutional Law', Gender: 'Female', International: 'N/A'},
+{ Subject: 'Legislation', Gender: 'Female', International: 'Female'},
+{ Subject: 'Legislation', Gender: 'N/A', International: 'Female'},
+{ Subject: 'Criminal Law', Gender: 'Male', International: 'N/A'},
+{ Subject: 'Constitutional Law', Gender: 'Male', International: 'Female'},
+{ Subject: 'Comparative Law', Gender: 'Male', International: 'Male'},
+{ Subject: 'Admiralty and Maritime Law', Gender: 'N/A', International: 'N/A'},
+{ Subject: 'Comparative Law', Gender: 'N/A', International: 'N/A'},
+{ Subject: 'Constitutional Law', Gender: 'Female', International: 'N/A'},
+{ Subject: 'Constitutional Law', Gender: 'Male', International: 'Male'},
+{ Subject: 'Criminal Law', Gender: 'Female', International: 'Male'},
+{ Subject: 'Tax Law', Gender: 'Male', International: 'Male'},
+{ Subject: 'Tax Law', Gender: 'Male', International: 'Female'},
+{ Subject: 'Legislation', Gender: 'N/A', International: 'N/A'},
+{ Subject: 'Tax Law', Gender: 'N/A', International: 'Female'},
+{ Subject: 'Comparative Law', Gender: 'Male', International: 'N/A'},
+{ Subject: 'Administrative Law', Gender: 'Male', International: 'Female'},
+{ Subject: 'Admiralty and Maritime Law', Gender: 'Male', International: 'Male'},
+{ Subject: 'Administrative Law', Gender: 'N/A', International: 'Male'},
+{ Subject: 'Criminal Law', Gender: 'N/A', International: 'Female'},
+{ Subject: 'Admiralty and Maritime Law', Gender: 'Male', International: 'Male'},
+{ Subject: 'Criminal Law', Gender: 'Female', International: 'Male'},
+{ Subject: 'Legislation', Gender: 'Female', International: 'Female'},
+{ Subject: 'Legislation', Gender: 'Male', International: 'Male'},
+{ Subject: 'Contracts', Gender: 'Male', International: 'Male'},
+{ Subject: 'Tax Law', Gender: 'Female', International: 'Male'},
+{ Subject: 'Admiralty and Maritime Law', Gender: 'Male', International: 'Male'},
+{ Subject: 'Contracts', Gender: 'N/A', International: 'Male'},
+{ Subject: 'Tax Law', Gender: 'Male', International: 'Female'},
+{ Subject: 'Criminal Law', Gender: 'N/A', International: 'N/A'},
+{ Subject: 'Tax Law', Gender: 'N/A', International: 'Male'},
+{ Subject: 'Constitutional Law', Gender: 'Female', International: 'N/A'},
+{ Subject: 'Constitutional Law', Gender: 'Male', International: 'Female'},
+{ Subject: 'Contracts', Gender: 'Female', International: 'Female'},
+{ Subject: 'Comparative Law', Gender: 'Female', International: 'Male'},
+{ Subject: 'Legislation', Gender: 'Female', International: 'N/A'},
+{ Subject: 'Administrative Law', Gender: 'N/A', International: 'Male'},
+{ Subject: 'Administrative Law', Gender: 'Male', International: 'Male'},
+{ Subject: 'Legislation', Gender: 'Female', International: 'N/A'},
+{ Subject: 'Admiralty and Maritime Law', Gender: 'Female', International: 'Male'},
+{ Subject: 'Criminal Law', Gender: 'Female', International: 'Female'},
+{ Subject: 'Legislation', Gender: 'Female', International: 'Female'},
+{ Subject: 'Tax Law', Gender: 'Male', International: 'Female'},
+{ Subject: 'Comparative Law', Gender: 'Female', International: 'Female'},
+{ Subject: 'Contracts', Gender: 'Female', International: 'N/A'},
+{ Subject: 'Contracts', Gender: 'N/A', International: 'N/A'},
+{ Subject: 'Tax Law', Gender: 'Female', International: 'N/A'},
+{ Subject: 'Tax Law', Gender: 'Male', International: 'Male'},
+{ Subject: 'Legislation', Gender: 'Female', International: 'Female'},
+{ Subject: 'Tax Law', Gender: 'Male', International: 'N/A'},
+{ Subject: 'Administrative Law', Gender: 'Female', International: 'Female'},
+{ Subject: 'Legislation', Gender: 'Male', International: 'Male'},
+{ Subject: 'Administrative Law', Gender: 'Male', International: 'N/A'},
+{ Subject: 'Administrative Law', Gender: 'N/A', International: 'Female'},
+{ Subject: 'Criminal Law', Gender: 'N/A', International: 'Male'},
+{ Subject: 'Constitutional Law', Gender: 'Female', International: 'Male'},
+{ Subject: 'Legislation', Gender: 'Male', International: 'Female'},
+{ Subject: 'Tax Law', Gender: 'Male', International: 'Male'},
+{ Subject: 'Tax Law', Gender: 'Male', International: 'Male'},
+{ Subject: 'Contracts', Gender: 'Female', International: 'Male'},
+{ Subject: 'Criminal Law', Gender: 'N/A', International: 'Female'},
+{ Subject: 'Criminal Law', Gender: 'Female', International: 'Male'},
+{ Subject: 'Admiralty and Maritime Law', Gender: 'N/A', International: 'Female'},
+{ Subject: 'Legislation', Gender: 'Male', International: 'Female'},
+{ Subject: 'Admiralty and Maritime Law', Gender: 'Male', International: 'N/A'},
+{ Subject: 'Tax Law', Gender: 'Male', International: 'Male'},
+{ Subject: 'Contracts', Gender: 'N/A', International: 'Female'},
+{ Subject: 'Criminal Law', Gender: 'Female', International: 'Female'},
+{ Subject: 'Administrative Law', Gender: 'Male', International: 'N/A'},
+{ Subject: 'Criminal Law', Gender: 'N/A', International: 'Female'},
+{ Subject: 'Constitutional Law', Gender: 'Male', International: 'Female'},
+{ Subject: 'Legislation', Gender: 'Male', International: 'Male'},
+{ Subject: 'Comparative Law', Gender: 'Male', International: 'Female'},
+{ Subject: 'Admiralty and Maritime Law', Gender: 'Female', International: 'Male'},
+{ Subject: 'Contracts', Gender: 'N/A', International: 'Male'},
+{ Subject: 'Legislation', Gender: 'N/A', International: 'Male'},
+{ Subject: 'Constitutional Law', Gender: 'Female', International: 'N/A'},
+{ Subject: 'Tax Law', Gender: 'N/A', International: 'N/A'},
+{ Subject: 'Admiralty and Maritime Law', Gender: 'N/A', International: 'Male'}
+];
+
+var rdiData = [];
+
+$.views.helpers(
+	{
+		percT: function(val) {
+			return (((val / rdiData.length) * 100) + '').substr(0, 4) + '%';
+		},
+		getKeys: function(rdData) {
+			var q = "";
+			var p = [];
+			//console.log(rdData.toString());
+			
+			var rdDataObject = rdData[0];
+			for (var key in rdDataObject)
+			{
+				if (rdDataObject.hasOwnProperty(key))
+				{
+					p.push(key);
+				}	
+			}
+			
+			return p;
+		},
+		getValCounts: function(rdData) {
+			var q = "";
+			var p = {};
+			//console.log(rdData.toString());
+			for (var rbd in rdData)
+			{
+				var rdDataObject = rdData[rbd];
+				for (var key in rdDataObject)
+				{
+					if (rdDataObject.hasOwnProperty(key))
+					{
+						if (p[rdDataObject[key]])
+						{
+							p[rdDataObject[key]]++;
+						}
+						else
+						{
+							p[rdDataObject[key]] = 1;
+						}
+					}	
+				}
+			}
+			
+			for (var z in p)
+			{
+				q = q + z + ':' + p[z] + '#';
+			}
+			return q;
+		},
+		datalength: function() {
+			return rdiData.length;
+		}
+	}
+);
+
+$.views.converters({
+		datalength: function(value, context) {
+			//console.log('typeofcontext=' + typeof context);
+			return $(context).closest('.recursiveStats').data('rdData');
+		},
+		getBit: function (value, context) {
+			var mask = 1 << context.src.value,
+				dataValue = context.tgt[context.path];
+			return value ? dataValue | mask : dataValue & ~mask;
+		},
+		setBit: function (value, context) {
+			return value >> context.tgt.value & 1 == 1;
+		},
+		intToStr: function (value) {
+			return "" + value;
+		},
+		strToInt: function (value) {
+			return parseInt(value);
+		}
+});
+
+(function( $ ){
+
+  $.fn.rdInspector = function(initData) {
+  
+    rdiData = initData;
+	
+	var jqInsert = createRdViewer(initData);
+	this.append(jqInsert);
+	$('body').delegate('.breakdownSelect', 'change', function(){
+		if ($(this).children("[selected]").val() < 0)
+		{
+		
+		}
+		else
+		{
+			
+			//console.log($(this).children("[selected]").text());
+			//sweep attached data and generate a stats array
+			var renderWith = {};
+			var statsKey = $(this).children("[selected]").text();
+			var thisrdData = $(this).closest('.datashell').data('rdData');
+			var thisHolder = $(this).closest('.datashell').find('.statsHolder');
+			
+			
+			$.each(thisrdData, function(index, item){
+				if(item[statsKey])
+				{
+					renderWith[item[statsKey]] ? renderWith[item[statsKey]].val++ : renderWith[item[statsKey]] = {val: 1};
+				}
+				else
+				{
+					renderWith['undefined'].val ? renderWith['undefined'].val++ : renderWith['undefined'] = {val: 1};
+				}
+			}
+			);
+			
+			thisHolder.empty();
+			
+			for (var k in renderWith)
+			{
+				
+				renderWith[k].perc = (((renderWith[k].val / thisrdData.length) * 100) + '').substr(0, 4) + '%';
+				renderWith[k].sKey = statsKey;
+				renderWith[k].sVal = k;
+				
+				$($("#breakdownTemplate").render(renderWith[k])).appendTo(thisHolder);
+				//console.log(thisHolder.find('.breakdownPieChart:last').length);
+				var paper = Raphael(thisHolder.find('.breakdownPieChart:last').get(0), 100, 100);
+				var tpaper = Raphael(thisHolder.find('.breakdownTotalPieChart:last').get(0), 100, 100);
+				sector(paper, 50, 50, 40, 0, Math.min((360 * (renderWith[k].val / thisrdData.length)), 359), {fill: "#cce", stroke: "#fff", "stroke-width": 2});
+				sector(tpaper, 50, 50, 40, 0, Math.min((360 * (renderWith[k].val / initData.length)), 359), {fill: "#ecc", stroke: "#fff", "stroke-width": 2});
+				//console.log(k + ':' + renderWith[k].val + ':' + renderWith[k].perc);
+			}
+		}
+	});
+	$('body').delegate('.statsOuter', 'click', function(){
+		
+		if ($(this).find('.datashell').length > 0)
+		{
+			return;
+		}
+		var outerData = $(this).closest('.datashell').data('rdData');
+		var innerData = [];
+		var statKey = $(this).find('.statKey').text();
+		var statVal = $(this).find('.statVal').text();
+		var thisLabel = $(this).closest('.datashell').find('.rdLabel:first').text();
+		
+		$.each(outerData, function(index, item){
+			if (item[statKey] === statVal)
+			{
+				innerData.push(item);
+			}
+		});
+		
+		
+		var jqAppend = createRdViewer(innerData, thisLabel + '>>' + statKey + ':' + statVal) 
+		$(this).append(jqAppend);
+		
+		$(this).find('.statsMsg:first').remove();
+	});
+	
+
+  };
+})( jQuery );
+
+
+function sector(mypaper, cx, cy, r, startAngle, endAngle, params) {
+		var rad = Math.PI / 180;
+        var x1 = cx + r * Math.cos(-startAngle * rad),
+            x2 = cx + r * Math.cos(-endAngle * rad),
+            y1 = cy + r * Math.sin(-startAngle * rad),
+            y2 = cy + r * Math.sin(-endAngle * rad);
+		
+		var mypath = mypaper.path(["M", cx, cy, "L", x1, y1, "A", r, r, 0, +0, 0, x1, y1, "z"]).attr(params);
+		
+		mypath.animate({path: ["M", cx, cy, "L", x1, y1, "A", r, r, 0, +0, 0, x1, y1, "z","M", cx, cy, "L", x1, y1, "A", r, r, 0, +(endAngle - startAngle > 180), 0, (x2), (y2), "z"], stroke:"#fff"}, 1000, 'bounce');
+		
+		return mypath;
+}
+
+function createRdViewer(rdJSONDataObject, rdLabel) {
+	var dataShellDiv = $("<div class='datashell'></div>");
+	var rdCapsule = {rdData: rdJSONDataObject, rdLabel: rdLabel || 'Total'};
+	dataShellDiv.data('rdData', rdJSONDataObject);
+	dataShellDiv.html($("#rdTemplate").render(rdCapsule));
+	return dataShellDiv;
+}
+
+$(document).ready(function (){ 
+	$("#contentDiv").rdInspector(candidates);
+});
+
+</script>
+</body>
+
+</html>
